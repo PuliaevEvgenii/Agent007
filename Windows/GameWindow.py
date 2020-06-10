@@ -3,22 +3,24 @@ from PyQt5.QtCore import QRect, Qt
 from PyQt5.QtGui import QPainter, QColor
 from PyQt5.QtWidgets import QWidget
 
-from Cell import Cell
+from GameObjects.Cell import Cell
+from GameObjects.Game import Game
+from Windows.StatInfoWindow import StatInfoWindow
 from Utils.CellState import CellState
 from Utils.Direction import Direction
-from Game import Game
 from Utils.Utils import click_on_rect
 
 
-class Window(QWidget):
+class GameWindow(QWidget):
 
     def __init__(self, game: Game):
         super().__init__()
         self.game = game
-        self.init_ui(game.field.n_width, game.field.n_height, 50)
+        self.cell_width = 50
+        self.init_ui(game.field.n_width, game.field.n_height, self.cell_width)
 
     def init_ui(self, w, h, c):
-        self.setGeometry(300, 300, c * w, c * h)
+        self.setGeometry(300, 300, c * w, c * h + 50)
         self.setWindowTitle('Agent 007')
         self.show()
 
@@ -51,13 +53,15 @@ class Window(QWidget):
             player_dir = Direction.bottom
 
         if player_dir is not None:
-            self.game.next_move(player_dir)
+            if not self.game.next_move(player_dir):
+                self.siw = StatInfoWindow(self.game.stats)
+                self.close()
             self.update()
 
     def paint_field(self, qp: QPainter):
         field = self.game.field
-        for i in range(field.n_width):
-            for j in range(field.n_height):
+        for i in range(field.n_height):
+            for j in range(field.n_width):
                 cell: Cell = field.cells[i][j]
 
                 col = QColor(0, 0, 0)
@@ -66,7 +70,7 @@ class Window(QWidget):
                 col.setNamedColor(cell.state.value)
                 qp.setBrush(col)
 
-                r = QRect(i * cell.width, j * cell.height, cell.width, cell.height)
+                r = QRect(j * cell.width, i * cell.height, cell.width, cell.height)
 
                 qp.drawRect(r)
 
@@ -74,3 +78,8 @@ class Window(QWidget):
                     col = QColor(0, 0, 0)
                     qp.setPen(col)
                     qp.drawText(r, Qt.AlignCenter, str(cell.steps))
+
+        statusbar = QRect(0, field.n_height * self.cell_width, field.n_width * self.cell_width, self.cell_width)
+        stats = 'steps: ' + str(self.game.stats.steps) + \
+                ', coloured: ' + str(self.game.stats.filled_cells) + ' / ' + str(self.game.stats.total_cells) + ' cells'
+        qp.drawText(statusbar, Qt.AlignCenter, stats)
